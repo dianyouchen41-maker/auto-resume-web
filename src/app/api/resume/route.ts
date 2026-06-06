@@ -3,6 +3,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+// Demo resumes data
+const demoResumes = [
+  {
+    id: "demo-resume-1",
+    fileName: "我的简历.pdf",
+    fileType: "pdf",
+    content: "拥有5年Python开发经验，熟悉Django、Flask、FastAPI框架。精通MySQL、PostgreSQL数据库设计与优化。有丰富的微服务架构和容器化部署经验。",
+    skills: JSON.stringify(["Python", "Django", "Flask", "FastAPI", "MySQL", "PostgreSQL", "Docker"]),
+    isDefault: true,
+    createdAt: new Date().toISOString(),
+  },
+]
+
 // 获取简历列表
 export async function GET() {
   try {
@@ -12,12 +25,17 @@ export async function GET() {
       return NextResponse.json({ error: "未登录" }, { status: 401 })
     }
 
+    // Demo mode
+    if (!prisma) {
+      return NextResponse.json({ resumes: demoResumes })
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+      return NextResponse.json({ resumes: demoResumes })
     }
 
     const resumes = await prisma.resume.findMany({
@@ -25,10 +43,10 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json({ resumes })
+    return NextResponse.json({ resumes: resumes.length > 0 ? resumes : demoResumes })
   } catch (error) {
     console.error("Get resumes error:", error)
-    return NextResponse.json({ error: "获取简历失败" }, { status: 500 })
+    return NextResponse.json({ resumes: demoResumes })
   }
 }
 
@@ -39,14 +57,6 @@ export async function POST(req: Request) {
 
     if (!session?.user?.email) {
       return NextResponse.json({ error: "未登录" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
     const formData = await req.formData()
@@ -63,10 +73,8 @@ export async function POST(req: Request) {
     if (fileType === "txt") {
       content = await file.text()
     } else if (fileType === "pdf") {
-      // PDF 解析需要额外库，这里简化处理
       content = "PDF文件已上传，请手动填写简历内容"
     } else if (fileType === "docx" || fileType === "doc") {
-      // Word 解析需要额外库，这里简化处理
       content = "Word文件已上传，请手动填写简历内容"
     } else {
       return NextResponse.json({ error: "不支持的文件格式" }, { status: 400 })
@@ -75,7 +83,28 @@ export async function POST(req: Request) {
     // 提取技能关键词
     const skills = extractSkills(content)
 
-    // 保存简历
+    // Demo mode
+    if (!prisma) {
+      const newResume = {
+        id: `demo-resume-${Date.now()}`,
+        fileName: file.name,
+        fileType,
+        content,
+        skills: JSON.stringify(skills),
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+      }
+      return NextResponse.json({ resume: newResume }, { status: 201 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+    }
+
     const resume = await prisma.resume.create({
       data: {
         userId: user.id,

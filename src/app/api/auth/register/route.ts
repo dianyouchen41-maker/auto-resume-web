@@ -21,6 +21,20 @@ export async function POST(req: Request) {
       )
     }
 
+    // Demo mode: if prisma is not available, return success
+    if (!prisma) {
+      return NextResponse.json(
+        {
+          user: {
+            id: "demo-user",
+            name,
+            email,
+          },
+        },
+        { status: 201 }
+      )
+    }
+
     // 检查邮箱是否已注册
     const existingUser = await prisma.user.findUnique({
       where: { email },
