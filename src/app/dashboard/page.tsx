@@ -1,8 +1,7 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +11,6 @@ import {
   Send,
   BarChart3,
   Settings,
-  LogOut,
   ArrowRight,
   TrendingUp,
   CheckCircle2,
@@ -103,25 +101,24 @@ const stats = [
 ]
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    const stored = localStorage.getItem("user")
+    if (stored) {
+      setUser(JSON.parse(stored))
+    } else {
       router.push("/login")
     }
-  }, [status, router])
+  }, [router])
 
-  if (status === "loading") {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     )
-  }
-
-  if (!session) {
-    return null
   }
 
   return (
@@ -133,14 +130,14 @@ export default function DashboardPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-violet-600 rounded-xl flex items-center justify-center">
               <Send className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold gradient-text">AutoResume</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">AutoResume</span>
           </Link>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <div className="text-sm font-medium">{session.user?.name || "用户"}</div>
-              <div className="text-xs text-gray-500">{session.user?.email}</div>
+              <div className="text-sm font-medium">{user.name || "用户"}</div>
+              <div className="text-xs text-gray-500">{user.email}</div>
             </div>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => { localStorage.removeItem("user"); router.push("/"); }}>
               <Settings className="w-5 h-5" />
             </Button>
           </div>
@@ -152,7 +149,7 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            欢迎回来，{session.user?.name || "用户"} 👋
+            欢迎回来，{user.name || "用户"} 👋
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             今天是美好的一天，让我们开始投递吧！

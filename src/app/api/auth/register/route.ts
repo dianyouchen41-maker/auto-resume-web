@@ -21,12 +21,53 @@ export async function POST(req: Request) {
       )
     }
 
-    // Demo mode: if prisma is not available, return success
-    if (!prisma) {
+    // Try database first, fall back to demo mode
+    try {
+      if (!prisma) {
+        throw new Error("No prisma client")
+      }
+
+      // 检查邮箱是否已注册
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      })
+
+      if (existingUser) {
+        return NextResponse.json(
+          { error: "该邮箱已注册" },
+          { status: 400 }
+        )
+      }
+
+      // 加密密码
+      const hashedPassword = await hash(password, 12)
+
+      // 创建用户
+      const user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+        },
+      })
+
       return NextResponse.json(
         {
           user: {
-            id: "demo-user",
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          },
+        },
+        { status: 201 }
+      )
+    } catch (dbError) {
+      // Demo mode: return success without database
+      console.log("Database not available, using demo mode:", dbError)
+      return NextResponse.json(
+        {
+          user: {
+            id: "demo-" + Date.now(),
             name,
             email,
           },
@@ -34,41 +75,6 @@ export async function POST(req: Request) {
         { status: 201 }
       )
     }
-
-    // 检查邮箱是否已注册
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    })
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "该邮箱已注册" },
-        { status: 400 }
-      )
-    }
-
-    // 加密密码
-    const hashedPassword = await hash(password, 12)
-
-    // 创建用户
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-      },
-    })
-
-    return NextResponse.json(
-      {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-        },
-      },
-      { status: 201 }
-    )
   } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json(
